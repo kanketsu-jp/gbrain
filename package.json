@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/core/index.ts",
   "bin": {
-    "gbrain": "src/cli.ts"
+    "gbrain": "src/cli.ts",
+    "kbrain": "src/cli.ts"
   },
   "exports": {
     ".": "./src/core/index.ts",
