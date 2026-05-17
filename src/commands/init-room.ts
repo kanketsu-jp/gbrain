@@ -113,6 +113,10 @@ export async function runInitRoom(args: string[]) {
   const originalHome = process.env.GBRAIN_HOME;
   const originalLang = process.env.KBRAIN_LANG;
   process.env.GBRAIN_HOME = kbrainDir;
+  // Default to ja for the user-facing init-room output as well, not just for
+  // the inner runInit call. Env is restored in `finally` below — but the
+  // final user-facing console.log lives **inside** the try, so it still
+  // resolves under our chosen locale.
   if (!originalLang) process.env.KBRAIN_LANG = 'ja';
   try {
     const { runInit } = await import('./init.ts');
@@ -120,25 +124,25 @@ export async function runInitRoom(args: string[]) {
     if (opts.nonInteractive) initArgs.push('--non-interactive');
     if (opts.jsonOutput) initArgs.push('--json');
     await runInit(initArgs);
+
+    if (opts.jsonOutput) {
+      console.log(JSON.stringify({
+        status: 'ok',
+        room: { name: opts.name, path: opts.path, kbrain_home: kbrainDir, db_path: dbPath },
+      }));
+    } else {
+      const rel = relative(process.cwd(), opts.path) || opts.path;
+      console.log(t('init-room.done.title', { name: opts.name, path: rel }));
+      console.log(t('init-room.done.kbrain_dir', { rel: relative(opts.path, kbrainDir) }));
+      console.log(t('init-room.done.db_path', { rel: relative(opts.path, dbPath) }));
+      console.log('');
+      console.log(t('init-room.done.next_hint'));
+      console.log(t('init-room.done.next_cmd', { path: opts.path }));
+    }
   } finally {
     if (originalHome === undefined) delete process.env.GBRAIN_HOME;
     else process.env.GBRAIN_HOME = originalHome;
     if (originalLang === undefined) delete process.env.KBRAIN_LANG;
     else process.env.KBRAIN_LANG = originalLang;
-  }
-
-  if (opts.jsonOutput) {
-    console.log(JSON.stringify({
-      status: 'ok',
-      room: { name: opts.name, path: opts.path, kbrain_home: kbrainDir, db_path: dbPath },
-    }));
-  } else {
-    const rel = relative(process.cwd(), opts.path) || opts.path;
-    console.log(t('init-room.done.title', { name: opts.name, path: rel }));
-    console.log(t('init-room.done.kbrain_dir', { rel: relative(opts.path, kbrainDir) }));
-    console.log(t('init-room.done.db_path', { rel: relative(opts.path, dbPath) }));
-    console.log('');
-    console.log(t('init-room.done.next_hint'));
-    console.log(t('init-room.done.next_cmd', { path: opts.path }));
   }
 }
