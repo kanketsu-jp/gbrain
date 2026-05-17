@@ -20,5 +20,7 @@
   "setup.done.next_header": "Next steps:",
   "setup.done.next_cd": "  cd \"{path}\"",
   "setup.done.next_skill_hint": "  # Launch Claude Code / Codex / OpenCode and create your first Room:\n  # > /{lower}-init   <- create interactively via the Skill",
-  "setup.done.next_cli_hint": "  # or: kbrain init-room --path room/<name> --name <name> --parent-brand {display} --non-interactive"
+  "setup.done.next_cli_hint": "  # or: kbrain init-room --path room/<name> --name <name> --parent-brand {display} --non-interactive",
+  "new.usage": "Usage: kbrain new <room-name> [--force] [--json]\n\n  Run inside a brand root (e.g. KK2AI) or any subdirectory.\n  Creates room/<room-name>/ and refreshes the Overseer registry if present.",
+  "new.error.not_brand_root": "No brand root found (walked up from {cwd}).\nRun `kbrain setup --brand <UPPER> --path <abs>` first, then invoke `kbrain new` from inside that root."
 }

@@ -20,5 +20,7 @@
   "setup.done.next_header": "次のステップ:",
   "setup.done.next_cd": "  cd \"{path}\"",
   "setup.done.next_skill_hint": "  # Claude Code / Codex / OpenCode を起動し、最初の Room を作る:\n  # > /{lower}-init   ← Skill から対話で作成",
-  "setup.done.next_cli_hint": "  # または: kbrain init-room --path room/<name> --name <name> --parent-brand {display} --non-interactive"
+  "setup.done.next_cli_hint": "  # または: kbrain init-room --path room/<name> --name <name> --parent-brand {display} --non-interactive",
+  "new.usage": "Usage: kbrain new <room-name> [--force] [--json]\n\n  ブランドルート (KK2AI など) かその配下で実行すると room/<room-name>/ に新しい Room を作ります。\n  Overseer が初期化済みなら自動でレジストリに登録します。",
+  "new.error.not_brand_root": "ブランドルートが見つかりません ({cwd} 起点で親階層を遡って探索)。\n`kbrain setup --brand <UPPER> --path <abs>` でブランドルートを作成した上で、その配下で実行してください。"
 }
