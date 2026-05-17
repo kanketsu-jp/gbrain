@@ -30,7 +30,7 @@ function printUsage(): void {
   console.error('Usage:');
   console.error('  kbrain overseer list');
   console.error('  kbrain overseer rooms');
-  console.error('  kbrain overseer search <query>');
+  console.error('  kbrain overseer search <query> [--limit <n>] [--json]');
   console.error('  kbrain overseer status');
 }
 
@@ -92,20 +92,80 @@ async function runStatus(): Promise<void> {
   console.log(`  created_at : ${reg.created_at}`);
 }
 
-async function runSearch(query: string): Promise<void> {
+function pickSnippet(hit: Record<string, unknown>): string {
+  // 候補キーを優先順に。最初に文字列が見つかったものを使う。
+  const candidates = ['snippet', 'chunk_text', 'title', 'compiled_truth', 'content', 'summary'];
+  for (const k of candidates) {
+    const v = hit[k];
+    if (typeof v === 'string' && v.length > 0) {
+      const oneLine = v.replace(/\s+/g, ' ').trim();
+      return oneLine.length > 120 ? oneLine.slice(0, 117) + '...' : oneLine;
+    }
+  }
+  return '';
+}
+
+function pickSourceId(hit: Record<string, unknown>): string {
+  const candidates = ['slug', 'page_slug', 'source_id', 'page_id', 'id'];
+  for (const k of candidates) {
+    const v = hit[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+    if (typeof v === 'number') return String(v);
+  }
+  return '?';
+}
+
+async function runSearch(args: string[]): Promise<void> {
+  // --json / --limit <n> を抜き出して残りを query にする。
+  let asJson = false;
+  let limit: number | undefined;
+  const rest: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--json') {
+      asJson = true;
+    } else if (a === '--limit' && i + 1 < args.length) {
+      limit = Number(args[++i]);
+    } else {
+      rest.push(a);
+    }
+  }
+  const query = rest.join(' ').trim();
   if (!query) {
-    console.error('Usage: kbrain overseer search <query>');
+    console.error('Usage: kbrain overseer search <query> [--limit <n>] [--json]');
     process.exit(1);
   }
   const reg = ensureRegistryOrExit();
-  // MVP: aggregateSearch はスタブ。シグネチャの動作確認のみ行う。
-  const result = await aggregateSearch(reg, query);
-  console.log('未実装: multi-engine federated search は将来実装');
-  console.log(`  query  : ${result.query}`);
-  console.log(`  rooms  : ${result.rooms.length === 0 ? '(なし)' : result.rooms.join(', ')}`);
+  const result = await aggregateSearch(reg, query, { limit });
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(`query  : ${result.query}`);
+  console.log(`rooms  : ${result.rooms.length === 0 ? '(なし)' : result.rooms.join(', ')}`);
+  console.log(`hits   : ${result.results.length}`);
   console.log('');
-  console.log('TODO: 各 Room の PGLite を read-only で開き、operations.search を呼んで結果統合する。');
-  // exit 0
+
+  if (result.results.length === 0) {
+    console.log('(該当なし)');
+  } else {
+    for (const hit of result.results) {
+      const score = typeof hit.score === 'number' ? hit.score.toFixed(4) : '?';
+      const id = pickSourceId(hit);
+      const snippet = pickSnippet(hit);
+      console.log(`[${score}] ${hit.room}/${id}${snippet ? ' -- ' + snippet : ''}`);
+    }
+  }
+
+  if (result.errors && result.errors.length > 0) {
+    console.log('');
+    console.log('warnings:');
+    for (const e of result.errors) {
+      console.log(`  - ${e.room}: ${e.message}`);
+    }
+  }
 }
 
 export async function runOverseer(args: string[]): Promise<void> {
@@ -124,7 +184,7 @@ export async function runOverseer(args: string[]): Promise<void> {
       await runStatus();
       return;
     case 'search':
-      await runSearch(rest.join(' ').trim());
+      await runSearch(rest);
       return;
     default:
       console.error(`Unknown subcommand: ${sub}`);
