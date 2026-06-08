@@ -27,6 +27,11 @@ eval/data/amara-life-v1/_cache/
 test/.cache/
 
 .claude/
+# Kbrain extension: ship .claude/ templates as part of the distribution.
+!templates/room/.claude/
+!templates/room/.claude/**
+!setup/templates/brand-root/.claude/
+!setup/templates/brand-root/.claude/**
 export/
 
 # Conductor workspace-local agent artifacts: plans, todos, run-unit-parallel

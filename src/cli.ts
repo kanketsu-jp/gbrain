@@ -27,7 +27,7 @@ for (const op of operations) {
 }
 
 // CLI-only commands that bypass the operation layer
-const CLI_ONLY = new Set(['init', 'upgrade', 'post-upgrade', 'check-update', 'integrations', 'publish', 'check-backlinks', 'lint', 'report', 'import', 'export', 'files', 'embed', 'serve', 'call', 'config', 'doctor', 'migrate', 'eval', 'sync', 'extract', 'features', 'autopilot', 'graph-query', 'jobs', 'agent', 'apply-migrations', 'skillpack-check', 'skillpack', 'resolvers', 'integrity', 'repair-jsonb', 'orphans', 'sources', 'mounts', 'dream', 'check-resolvable', 'routing-eval', 'skillify', 'smoke-test', 'providers', 'storage', 'repos', 'code-def', 'code-refs', 'reindex-code', 'reindex-frontmatter', 'code-callers', 'code-callees', 'frontmatter', 'auth', 'friction', 'claw-test', 'book-mirror', 'takes', 'think', 'salience', 'anomalies', 'transcripts', 'models', 'remote', 'recall', 'forget', 'edges-backfill', 'cache']);
+const CLI_ONLY = new Set(['init', 'init-room', 'init-overseer', 'overseer', 'new', 'setup', 'upgrade', 'post-upgrade', 'check-update', 'integrations', 'publish', 'check-backlinks', 'lint', 'report', 'import', 'export', 'files', 'embed', 'serve', 'call', 'config', 'doctor', 'migrate', 'eval', 'sync', 'extract', 'features', 'autopilot', 'graph-query', 'jobs', 'agent', 'apply-migrations', 'skillpack-check', 'skillpack', 'resolvers', 'integrity', 'repair-jsonb', 'orphans', 'sources', 'mounts', 'dream', 'check-resolvable', 'routing-eval', 'skillify', 'smoke-test', 'providers', 'storage', 'repos', 'code-def', 'code-refs', 'reindex-code', 'reindex-frontmatter', 'code-callers', 'code-callees', 'frontmatter', 'auth', 'friction', 'claw-test', 'book-mirror', 'takes', 'think', 'salience', 'anomalies', 'transcripts', 'models', 'remote', 'recall', 'forget', 'edges-backfill', 'cache']);
 // CLI-only commands whose handlers print their own --help text. These are
 // excluded from the generic short-circuit so detailed per-command and
 // per-subcommand usage stays reachable.
@@ -725,6 +725,31 @@ async function handleCliOnly(command: string, args: string[]) {
   if (command === 'init') {
     const { runInit } = await import('./commands/init.ts');
     await runInit(args);
+    return;
+  }
+  if (command === 'init-room') {
+    const { runInitRoom } = await import('./commands/init-room.ts');
+    await runInitRoom(args);
+    return;
+  }
+  if (command === 'setup') {
+    const { runSetup } = await import('./commands/setup.ts');
+    await runSetup(args);
+    return;
+  }
+  if (command === 'init-overseer') {
+    const { runInitOverseer } = await import('./commands/init-overseer.ts');
+    await runInitOverseer(args);
+    return;
+  }
+  if (command === 'overseer') {
+    const { runOverseer } = await import('./commands/overseer.ts');
+    await runOverseer(args);
+    return;
+  }
+  if (command === 'new') {
+    const { runNew } = await import('./commands/new.ts');
+    await runNew(args);
     return;
   }
   if (command === 'auth') {
@@ -1560,7 +1585,20 @@ Run gbrain <command> --help for command-specific help.
 `);
 }
 
-main().catch(e => {
-  console.error(e.message || e);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    // Force a clean exit on successful completion. Some commands (notably
+    // `query`) leave a lingering handle — an HTTP keep-alive socket to the
+    // embedding provider and/or PGLite WASM worker threads — that keeps bun's
+    // event loop from draining, so the process never exits and spins a core at
+    // 100% CPU. All durable work is awaited before main() resolves (put/import/
+    // embed await their writes); only best-effort fire-and-forget telemetry is
+    // dropped, which short-lived CLI runs never flush anyway. Long-running
+    // commands (`serve`, `autopilot` daemon) never resolve main(), so this
+    // never fires for them.
+    process.exit(0);
+  })
+  .catch(e => {
+    console.error(e.message || e);
+    process.exit(1);
+  });
