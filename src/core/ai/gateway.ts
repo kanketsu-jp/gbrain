@@ -547,7 +547,7 @@ export function isAvailable(touchpoint: TouchpointKind): boolean {
         ? getRerankerModel() ?? null
         : null;
     if (!modelStr) return false;
-    const { recipe } = resolveRecipe(modelStr);
+    const { recipe, parsed } = resolveRecipe(modelStr);
 
     // Recipe must actually support the requested touchpoint.
     // Anthropic declares only expansion + chat (no embedding model); requesting
@@ -559,13 +559,24 @@ export function isAvailable(touchpoint: TouchpointKind): boolean {
     // EmbeddingTouchpoint.user_provided_models (D8=A), or the legacy
     // `recipe.id === 'litellm'` heuristic (back-compat for pre-v0.32 builds
     // where the field hadn't been declared yet).
+    //
+    // Bugfix: gate on whether the user ACTUALLY supplied a concrete model id
+    // (`parsed.modelId`), not merely on the recipe's static `models` list —
+    // which is empty BY DESIGN for user-provided recipes (llama-server,
+    // litellm). Pre-fix this returned false even for a fully-configured
+    // `embedding_model: llama-server:<model>`, so isAvailable('embedding')
+    // was false and hybridSearch silently skipped vector search (keyword
+    // only), even though embed/embed --stale stored vectors fine. parseModelId
+    // throws when the model part is missing (→ outer catch → false), so a bare
+    // `provider` with no model still resolves to unavailable.
     const isUserProvided =
       touchpoint === 'embedding' &&
       (touchpointConfig as any).user_provided_models === true;
     if (
       Array.isArray(touchpointConfig.models) &&
       touchpointConfig.models.length === 0 &&
-      (recipe.id === 'litellm' || isUserProvided)
+      (recipe.id === 'litellm' || isUserProvided) &&
+      !parsed.modelId
     ) return false;
 
     // For openai-compatible without auth requirements (Ollama local), treat as always-available.
