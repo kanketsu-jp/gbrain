@@ -186,13 +186,24 @@ export class PGLiteEngine implements BrainEngine {
   }
 
   async disconnect(): Promise<void> {
-    if (this._db) {
-      await this._db.close();
-      this._db = null;
-    }
+    // Release the advisory lock FIRST so a wedged close() can never strand it.
     if (this._lock?.acquired) {
       await releaseLock(this._lock);
       this._lock = null;
+    }
+    if (this._db) {
+      const db = this._db;
+      this._db = null;
+      // Fire-and-forget — do NOT await. PGLite's WASM close() can leave its
+      // promise permanently unresolved under bun after a `query` that issued
+      // an embedding HTTP fetch (the AbortSignal-less keep-alive socket wedges
+      // bun's event loop, spinning a core at 100% so the process never exits;
+      // a keyword-only query with no HTTP fetch closes cleanly). PGLite
+      // persists each write at transaction time, not on close(), so skipping
+      // the close-time flush is durability-safe; the WASM instance is reclaimed
+      // by process teardown. Callers that need the process to stay alive after
+      // disconnect must not rely on close() having drained.
+      void Promise.resolve(db.close()).catch(() => {});
     }
   }
 

@@ -1585,7 +1585,20 @@ Run gbrain <command> --help for command-specific help.
 `);
 }
 
-main().catch(e => {
-  console.error(e.message || e);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    // Force a clean exit on successful completion. Some commands (notably
+    // `query`) leave a lingering handle — an HTTP keep-alive socket to the
+    // embedding provider and/or PGLite WASM worker threads — that keeps bun's
+    // event loop from draining, so the process never exits and spins a core at
+    // 100% CPU. All durable work is awaited before main() resolves (put/import/
+    // embed await their writes); only best-effort fire-and-forget telemetry is
+    // dropped, which short-lived CLI runs never flush anyway. Long-running
+    // commands (`serve`, `autopilot` daemon) never resolve main(), so this
+    // never fires for them.
+    process.exit(0);
+  })
+  .catch(e => {
+    console.error(e.message || e);
+    process.exit(1);
+  });
